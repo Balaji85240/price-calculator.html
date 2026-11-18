@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Price &amp; Discount Calculator</title>
+
+  <style>
+    :root {
+      --bg: #eef2f1; --ink: #14211f; --muted: #55655f; --panel: #ffffff;
+      --line: #cfdad6; --accent: #0b6b5d; --good: #0b6b5d; --warn: #9a5b00; --bad: #a3262a;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1816; --ink: #e6efec; --muted: #9fb2ab; --panel: #172421;
+        --line: #2a3b36; --accent: #4fd1b8; --good: #4fd1b8; --warn: #f0b34a; --bad: #ff7b7f;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; background: var(--bg); color: var(--ink);
+      font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; line-height: 1.5;
+    }
+    .wrap {
+      width: 100%; max-width: 62rem; margin: 0 auto;
+      padding: clamp(1rem, 4vw, 3rem);
+      display: grid; gap: 1.25rem; grid-template-columns: 1fr;
+    }
+    header { grid-column: 1 / -1; }
+    h1 { font-size: clamp(1.5rem, 4vw + 0.5rem, 2.5rem); margin: 0 0 .5rem; line-height: 1.15; }
+    header p { margin: 0; color: var(--muted); max-width: 60ch; }
+
+    .panel {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 12px; padding: clamp(1rem, 3vw, 1.75rem);
+    }
+    .inputs { display: grid; gap: 1rem; align-content: start; }
+    label { display: grid; gap: .35rem; font-weight: 600; font-size: .95rem; }
+    input, select {
+      width: 100%; min-height: 2.75rem; padding: .5rem .75rem; font: inherit;
+      color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    }
+    input:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+
+    .receipt h2 { margin: 0 0 1rem; font-size: 1.25rem; overflow-wrap: anywhere; }
+    dl { margin: 0; }
+    dl > div {
+      display: flex; justify-content: space-between; gap: 1rem;
+      padding: .7rem 0; border-bottom: 1px dashed var(--line);
+    }
+    dl > div:last-child { border-bottom: 0; }
+    dt { color: var(--muted); }
+    dd { margin: 0; font-weight: 700; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+    .total { align-items: baseline; }
+    .total dd { font-size: clamp(1.5rem, 4vw, 2rem); color: var(--accent); }
+    #o-ship[data-free="true"] { color: var(--good); }
+    #o-stock[data-status="in_stock"] { color: var(--good); }
+    #o-stock[data-status="limited"] { color: var(--warn); }
+    #o-stock[data-status="out_of_stock"] { color: var(--bad); }
+
+    @media (min-width: 700px) {
+      .wrap { grid-template-columns: 1fr 1fr; align-items: start; }
+    }
+    @media (max-width: 360px) {
+      dl > div { flex-direction: column; gap: .1rem; }
+      dd { text-align: left; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="wrap">
+    <header>
+      <h1>Price &amp; discount calculator</h1>
+      <p>Change a value and the price summary updates. The full summary is also printed in the browser console (F12).</p>
+    </header>
+
+    <section class="panel inputs" aria-label="Product details">
+      <label>Product name
+        <input id="name" type="text" value="Wireless Headphones" />
+      </label>
+      <label>Base price (Rs.)
+        <input id="price" type="number" min="0" step="any" value="1999" inputmode="decimal" />
+      </label>
+      <label>Discount (%)
+        <input id="discount" type="number" min="0" max="100" step="any" value="15" inputmode="decimal" />
+      </label>
+      <label>Tax rate (%)
+        <input id="tax" type="number" min="0" step="any" value="18" inputmode="decimal" />
+      </label>
+      <label>Stock status
+        <select id="stock">
+          <option value="in_stock">In stock</option>
+          <option value="limited" selected>Limited</option>
+          <option value="out_of_stock">Out of stock</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="panel receipt" aria-live="polite" aria-label="Price summary">
+      <h2 id="name-out">Product</h2>
+      <dl>
+        <div><dt>Discounted price</dt><dd id="o-discounted"></dd></div>
+        <div><dt>Tax</dt><dd id="o-tax"></dd></div>
+        <div class="total"><dt>Final price</dt><dd id="o-final"></dd></div>
+        <div><dt>Shipping</dt><dd id="o-ship"></dd></div>
+        <div><dt>Stock</dt><dd id="o-stock"></dd></div>
+      </dl>
+    </section>
+  </main>
+
+  <script>
+
+    
+    const productName = "Wireless Headphones";
+    const basePrice = 1999;          
+    const discountPercent = 15;      
+    const taxRate = 18;              
+    const stockStatus = "limited";   
+
+    
+    function calculateDiscountedPrice(price, discount) {
+      return price - (price * discount) / 100;
+    }
+
+
+    function calculateTax(price, taxRate) {
+      return (price * taxRate) / 100;
+    }
+
+
+    function calculateFinalPrice(price, discount, taxRate) {
+      const discounted = calculateDiscountedPrice(price, discount);
+      const tax = calculateTax(discounted, taxRate);
+      return discounted + tax;
+    }
+
+
+    function isFreeShipping(finalPrice) {
+      if (finalPrice >= 500) {
+        return "Free Shipping";
+      } else {
+        return "Shipping: Rs.49";
+      }
+    }
+
+  
+    function getStockMessage(status) {
+      switch (status) {
+        case "in_stock":     return "In Stock";
+        case "limited":      return "Limited Stock";
+        case "out_of_stock": return "Out of Stock";
+        default:             return "Unknown Status";
+      }
+    }
+
+  
+    const discountedPrice = calculateDiscountedPrice(basePrice, discountPercent);
+    const taxAmount = calculateTax(discountedPrice, taxRate);
+    const finalPrice = calculateFinalPrice(basePrice, discountPercent, taxRate);
+    const shipping = isFreeShipping(finalPrice);
+    const stockMessage = getStockMessage(stockStatus);
+
+    console.log("===== PRICE SUMMARY =====");
+    console.log("Product          : " + productName);
+    console.log("Base Price       : Rs." + basePrice.toFixed(2));
+    console.log("Discount         : " + discountPercent + "%");
+    console.log("Discounted Price : Rs." + discountedPrice.toFixed(2));
+    console.log("Tax (" + taxRate + "%)       : Rs." + taxAmount.toFixed(2));
+    console.log("Final Price      : Rs." + finalPrice.toFixed(2));
+    console.log("Shipping         : " + shipping);
+    console.log("Stock Status     : " + stockMessage);
+    console.log("=========================");
+
+    const $ = (id) => document.getElementById(id);
+    const money = (n) => "Rs." + n.toFixed(2);
+
+    function render() {
+      const price = parseFloat($("price").value) || 0;
+      const discount = Math.min(Math.max(parseFloat($("discount").value) || 0, 0), 100);
+      const tax = Math.max(parseFloat($("tax").value) || 0, 0);
+      const status = $("stock").value;
+
+      const discounted = calculateDiscountedPrice(price, discount);
+      const taxAmt = calculateTax(discounted, tax);
+      const final = calculateFinalPrice(price, discount, tax);
+      const ship = isFreeShipping(final);
+
+      $("name-out").textContent = $("name").value || "Your product";
+      $("o-discounted").textContent = money(discounted);
+      $("o-tax").textContent = money(taxAmt);
+      $("o-final").textContent = money(final);
+      $("o-ship").textContent = ship;
+      $("o-ship").dataset.free = ship === "Free Shipping";
+      $("o-stock").textContent = getStockMessage(status);
+      $("o-stock").dataset.status = status;
+    }
+
+    document.querySelectorAll("input, select").forEach((el) =>
+      el.addEventListener("input", render)
+    );
+    render();
+  </script>
+</body>
+</html>
